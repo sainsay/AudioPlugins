@@ -1,12 +1,12 @@
 cmake_minimum_required(VERSION 3.15)
 
-project(Infinight VERSION 1.0.0)
+project(Infinight VERSION 1.0.1)
 
 # juce_set_vst2_sdk_path(...)
 # juce_set_aax_sdk_path(...)
 
 juce_add_plugin(Infinight
-    PRODUCT_NAME "Infinight-1_0_0"
+    PRODUCT_NAME "Infinight-1_0_1"
     # ICON_BIG ...                              # ICON_* arguments specify a path to an image file to use as an icon for the Standalone
     # ICON_SMALL ...
     COMPANY_NAME "sainsay"                          # Specify the name of the plugin's author
