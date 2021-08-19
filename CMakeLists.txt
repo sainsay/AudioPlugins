@@ -15,4 +15,7 @@ target_compile_features(Common PRIVATE cxx_std_20)
 
 add_subdirectory(infinight)
 target_compile_features(Infinight PRIVATE cxx_std_20)
+
+add_subdirectory(indefinight)
+target_compile_features(Indefinight PRIVATE cxx_std_20)
  
