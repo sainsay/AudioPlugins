@@ -1,6 +1,6 @@
 ---
 name: Plugin request
-about: Suggest an idea for this project
+about: Suggest a plugin for this project
 title: ''
 labels: plugin
 assignees: ''
