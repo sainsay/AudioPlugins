@@ -45,6 +45,8 @@ public:
 
 
 private:
+
+    //TODO: added more loopers. add ability to change how many loopers are used. up to 8 or 16?
     std::array<sain::FixedBufferMonoLooper, LooperCount> Loopers;
 
     juce::dsp::Gain<float> InputGainProcessor;
