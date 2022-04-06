@@ -15,4 +15,6 @@ target_compile_features(Common PRIVATE cxx_std_20)
 
 add_subdirectory(infinight)
 target_compile_features(Infinight PRIVATE cxx_std_20)
- 
+
+add_subdirectory(chordsplitter)
+target_compile_features(ChordSplitter PRIVATE cxx_std_20)
