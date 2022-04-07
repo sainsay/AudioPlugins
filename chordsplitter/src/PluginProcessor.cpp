@@ -1,23 +1,134 @@
 #include "PluginProcessor.h"
 
+static void processMidiIn(juce::MidiBuffer& midi, juce::SortedSet<NoteData>& notes )
+{
+    for (const auto metadata : midi)
+    {
+        const auto msg = metadata.getMessage();
+        const auto note = msg.getNoteNumber();
+        const auto velocity = msg.getVelocity();
+        const auto sample = metadata.samplePosition;
+        const auto isOn = msg.isNoteOnOrOff();
+
+        NoteData noteData;
+        noteData.note = note;
+        noteData.velocity = velocity;
+        noteData.sample = sample;
+        noteData.isOn = isOn;
+
+        notes.add(noteData);
+    }
+}
+
+static void processMidiOut(juce::MidiBuffer& midi, juce::SortedSet<NoteData>& notes, int& currentNote, const int selectedIDX, const int sampleCount, const bool PlayHighestAvailableNote )
+{
+    juce::SortedSet<int> ActiveNotes;
+    // TODO: move ActiveNotes creation and allocation out of hot path
+    ActiveNotes.ensureStorageAllocated(32); // ensures only one allocation for most use cases
+
+    std::for_each(
+        notes.begin(), 
+        notes.end(), 
+        [&ActiveNotes](const NoteData& note)
+        {
+            if (note.sample != -1 || !note.isOn){
+                return;
+            }
+
+            auto itt = std::find(ActiveNotes.begin(), ActiveNotes.end(), note.note);
+            if (itt == ActiveNotes.end())
+            {
+                ActiveNotes.add(note.note);
+            }
+        }
+    );
+
+    for (int i = 0 ; i < sampleCount; ++i)
+    {
+        std::for_each(
+            notes.begin(), 
+            notes.end(), 
+            [&ActiveNotes, &i](const NoteData& note)
+            {
+                if (note.sample != i){
+                    return;
+                }
+                
+                if (!note.isOn)
+                {
+                    auto itt = std::find(ActiveNotes.begin(), ActiveNotes.end(), note.note);
+                    if (itt != ActiveNotes.end())
+                    {
+                        ActiveNotes.remove(static_cast<const int>(itt - ActiveNotes.begin()));
+                    }
+                }
+                else
+                {
+                    ActiveNotes.add(note.note);
+                }
+            }
+        );
+
+        const auto selectedNote = 
+            selectedIDX < ActiveNotes.size() ? 
+                ActiveNotes.getUnchecked( selectedIDX ) : 
+                PlayHighestAvailableNote ? 
+                    ActiveNotes.size() - 1 :
+                    -1;
+
+        if (currentNote != selectedNote)
+        {
+            if (currentNote != -1)
+            {
+                juce::MidiMessage msg(juce::MidiMessage::noteOff(1, currentNote));
+                midi.addEvent(msg, i);
+            }
+
+            if (selectedNote != -1)
+            {
+                juce::MidiMessage msg(juce::MidiMessage::noteOn(1, selectedNote, (juce::uint8) 127));
+                midi.addEvent(msg, i);
+            }
+
+            currentNote =selectedNote;
+        }
+    }
+
+    notes.clearQuick();
+    for (const auto note : ActiveNotes)
+    {
+        NoteData noteData;
+        noteData.note = note;
+        noteData.velocity = 127;
+        noteData.sample = -1;
+        noteData.isOn = true;
+
+        notes.add(noteData);
+    }
+}
+
 Plugin::Plugin() :
     AudioProcessor (BusesProperties())
 {
     addParameter(
-        speed = new juce::AudioParameterFloat(
-            "speed",
-            "Arpeggiator Speed",
-            0.0,
-            1.0,
-            0.5));
-
-
+        selectedNote = new juce::AudioParameterInt(
+            "noteid",
+            "Selected Note",
+            0,
+            8,
+            0));
+    
+    addParameter(
+        PlayHighestAvailableNote = new juce::AudioParameterBool(
+            "playHighestAvailableNote",
+            "Play Highest Available Note",
+            false));
 }
 
 //==============================================================================
 void Plugin::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
-    juce::ignoreUnused(samplesPerBlock);
+    juce::ignoreUnused(sampleRate, samplesPerBlock);
 
     notes.clear();
     currentNote = -1;
@@ -27,62 +138,21 @@ void Plugin::releaseResources()
 {
     // When playback stops, you can use this as an opportunity to free up any
     // spare memory, etc.
+    notes.clear();
 }
 
 void Plugin::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi)
 {
-    static juce::uint32 bufferID = 0;
-    ++bufferID; 
-
-    // the audio buffer in a midi effect will have zero channels!
     jassert(buffer.getNumChannels() == 0);
 
-    // however we use the buffer to get timing information
     auto numSamples = buffer.getNumSamples();
+    auto NoteIDX = int(*selectedNote);
+    auto PlayHighestAvailableNoteValue = bool(*PlayHighestAvailableNote);
 
-    for (const auto metadata : midi)
-    {
-        const auto msg = metadata.getMessage();
-        const auto note = msg.getNoteNumber();
-        const auto velocity = msg.getVelocity();
-        const auto sample = metadata.samplePosition;
-
-        // if (msg.isNoteOn())
-        //     notes.add(NoteData{note, velocity, bufferID, sample});
-        // else if (msg.isNoteOff())
-        //     notes.removeValue(msg.getNoteNumber());
-    }
-
+    processMidiIn(midi, notes);    
     midi.clear();
 
-    auto NoteIDX = int(*selectedNote);
-
-    //if ( notes[NoteIDX] != currentNote)
-    {
-        /* code */
-    }
-
-
-
-    // if ((time + numSamples) >= noteDuration)
-    // {
-    //     auto offset = juce::jmax(0, juce::jmin((int)(noteDuration - time), numSamples - 1));
-
-    //     if (lastNoteValue > 0)
-    //     {
-    //         midi.addEvent(juce::MidiMessage::noteOff(1, lastNoteValue), offset);
-    //         lastNoteValue = -1;
-    //     }
-
-    //     if (notes.size() > 0)
-    //     {
-    //         currentNote = (currentNote + 1) % notes.size();
-    //         lastNoteValue = notes[currentNote];
-    //         midi.addEvent(juce::MidiMessage::noteOn(1, lastNoteValue, (juce::uint8)127), offset);
-    //     }
-    // }
-
-    // time = (time + numSamples) % noteDuration;
+    processMidiOut(midi, notes, currentNote, NoteIDX, numSamples, PlayHighestAvailableNoteValue);
 }
 
 //==============================================================================

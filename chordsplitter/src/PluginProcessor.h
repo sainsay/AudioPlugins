@@ -20,14 +20,14 @@ namespace ID
 struct NoteData{
     int note;
     int velocity;
-    juce::uint32 bufferID;
     int sample;
+    bool isOn;
 
     bool operator==(const NoteData& other) const noexcept
     {
         return note == other.note 
-            && bufferID == other.bufferID 
-            && sample == other.sample;
+            && sample == other.sample
+            && isOn == other.isOn;
     }
 
     bool operator!=(const NoteData& other) const noexcept
@@ -39,9 +39,9 @@ struct NoteData{
     {
         if (note < other.note)
             return true;
-        else if ( bufferID < other.bufferID )
-            return true;
         else if ( sample < other.sample )
+            return true;
+        else if ( isOn < other.isOn )
             return true;
         else
             return false;
@@ -51,9 +51,9 @@ struct NoteData{
     {
         if (note > other.note)
             return true;
-        else if ( bufferID > other.bufferID )
-            return true;
         else if ( sample > other.sample )
+            return true;
+        else if ( isOn > other.isOn )
             return true;
         else
             return false;
@@ -115,9 +115,8 @@ public:
 
 private:
     //==============================================================================
-    juce::AudioParameterFloat* speed;
     juce::AudioParameterInt* selectedNote;
-    juce::AudioParameterBool* missingNotePlayed;
+    juce::AudioParameterBool* PlayHighestAvailableNote;
 
     int currentNote;
     juce::SortedSet<NoteData> notes;
