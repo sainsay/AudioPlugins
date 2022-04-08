@@ -69,13 +69,23 @@ static void processMidiOut(juce::MidiBuffer& midi, juce::SortedSet<NoteData>& no
             }
         );
 
-        const auto selectedNote = 
-            selectedIDX < ActiveNotes.size() ? 
-                ActiveNotes.getUnchecked( selectedIDX ) : 
-                PlayHighestAvailableNote ? 
-                    ActiveNotes.size() - 1 :
-                    -1;
+        int selectedNote;
 
+        if (selectedIDX < ActiveNotes.size()) {
+            selectedNote = ActiveNotes.getUnchecked( selectedIDX ); 
+        } 
+        else
+        {        
+            if(PlayHighestAvailableNote && ActiveNotes.size() - 1 >= 0)
+            {
+                selectedNote = ActiveNotes.getUnchecked( ActiveNotes.size() - 1 );
+            }
+            else
+            {
+                selectedNote = -1;
+            }
+        }
+        
         if (currentNote != selectedNote)
         {
             if (currentNote != -1)
